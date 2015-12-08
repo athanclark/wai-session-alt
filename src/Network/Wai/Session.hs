@@ -47,8 +47,9 @@ data SessionConfig m k v = SessionConfig
   }
 
 
-sessionMiddleware :: Monad m => SessionConfig m k v -> MiddlewareT m
-sessionMiddleware cfg app req respond =
+sessionMiddleware :: Monad m => m (SessionConfig m k v) -> MiddlewareT m
+sessionMiddleware cfg' app req respond = do
+  cfg <- cfg'
   case parseSessionCookies cfg (requestHeaders req) of
     Nothing        -> app req respond
     Just (key,val) -> do
