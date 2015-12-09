@@ -28,8 +28,6 @@ import Network.Wai.Trans
 import Network.HTTP.Types
 import Web.Cookie
 
-import Control.Monad.IO.Class
-
 
 data SessionConfig m k v = SessionConfig
   { renderKey :: k -> BS.ByteString       -- ^ serialize the key
@@ -48,13 +46,11 @@ data SessionConfig m k v = SessionConfig
   }
 
 
-sessionMiddleware :: (MonadIO m, Show k, Show v) => SessionConfig m k v -> MiddlewareT m
+sessionMiddleware :: Monad m => SessionConfig m k v -> MiddlewareT m
 sessionMiddleware cfg app req respond = do
-  liftIO $ putStrLn $ "Req Headers: " ++ show (parseCookies <$> lookup "Cookie" (requestHeaders req))
   case parseSessionCookies cfg (requestHeaders req) of
     Nothing        -> app req respond
     Just (key,val) -> do
-      liftIO $ putStrLn "Parsed!"
       mVal <- newVal cfg key val
       case mVal of
         Nothing    -> app req respond

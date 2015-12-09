@@ -23,7 +23,6 @@ Library
                       , time
                       , vault
                       , wai-transformers
-                      , transformers
 
 Source-Repository head
   Type:                 git
