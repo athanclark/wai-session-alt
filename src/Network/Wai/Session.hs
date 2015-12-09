@@ -28,6 +28,7 @@ import Network.Wai.Trans
 import Network.HTTP.Types
 import Web.Cookie
 
+import Control.Monad.IO.Class
 
 
 data SessionConfig m k v = SessionConfig
@@ -47,12 +48,12 @@ data SessionConfig m k v = SessionConfig
   }
 
 
-sessionMiddleware :: Monad m => SessionConfig m k v -> MiddlewareT m
+sessionMiddleware :: MonadIO m => SessionConfig m k v -> MiddlewareT m
 sessionMiddleware cfg app req respond =
   case parseSessionCookies cfg (requestHeaders req) of
     Nothing        -> app req respond
     Just (key,val) -> do
-      putStrLn "Parsed!"
+      liftIO $ putStrLn "Parsed!"
       mVal <- newVal cfg key val
       case mVal of
         Nothing    -> app req respond
