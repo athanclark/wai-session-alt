@@ -49,7 +49,8 @@ data SessionConfig m k v = SessionConfig
 
 
 sessionMiddleware :: MonadIO m => SessionConfig m k v -> MiddlewareT m
-sessionMiddleware cfg app req respond =
+sessionMiddleware cfg app req respond = do
+  liftIO $ putStrLn $ "Req Headers: " ++ show (requestHeaders req)
   case parseSessionCookies cfg (requestHeaders req) of
     Nothing        -> app req respond
     Just (key,val) -> do
