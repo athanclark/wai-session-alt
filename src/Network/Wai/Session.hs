@@ -52,6 +52,7 @@ sessionMiddleware cfg app req respond =
   case parseSessionCookies cfg (requestHeaders req) of
     Nothing        -> app req respond
     Just (key,val) -> do
+      putStrLn "Parsed!"
       mVal <- newVal cfg key val
       case mVal of
         Nothing    -> app req respond
