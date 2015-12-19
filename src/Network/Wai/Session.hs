@@ -62,7 +62,7 @@ sessionMiddleware cfg app req respond = do
 
 parseSessionCookies :: SessionConfig m k v -> RequestHeaders -> Maybe (k, v)
 parseSessionCookies cfg xs = do
-  cookies <- parseCookies <$> lookup "Cookie" xs
+  cookies <- (reverse . parseCookies) <$> lookup "Cookie" xs
   key     <- parseKey cfg =<< lookup (keyName cfg) cookies
   val     <- parseVal cfg =<< lookup (valName cfg) cookies
   return (key, val)
