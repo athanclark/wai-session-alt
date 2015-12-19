@@ -28,6 +28,8 @@ import Network.Wai.Trans
 import Network.HTTP.Types
 import Web.Cookie
 
+import Debug.Trace
+
 
 data SessionConfig m k v = SessionConfig
   { renderKey :: k -> BS.ByteString       -- ^ serialize the key
@@ -62,7 +64,7 @@ sessionMiddleware cfg app req respond = do
 
 parseSessionCookies :: SessionConfig m k v -> RequestHeaders -> Maybe (k, v)
 parseSessionCookies cfg xs = do
-  cookies <- (reverse . parseCookies) <$> lookup "Cookie" xs
+  cookies <- parseCookies <$> lookup "Cookie" xs
   key     <- parseKey cfg =<< lookup (keyName cfg) cookies
   val     <- parseVal cfg =<< lookup (valName cfg) cookies
   return (key, val)
