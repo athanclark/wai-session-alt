@@ -1,5 +1,14 @@
 {-# LANGUAGE
     OverloadedStrings
+  , GeneralizedNewtypeDeriving
+  , DeriveFunctor
+  , DeriveFoldable
+  , DeriveTraversable
+  , DeriveGeneric
+  , DeriveDataTypeable
+  , MultiParamTypeClasses
+  , FunctionalDependencies
+  , FlexibleInstances
   #-}
 
 {- |
@@ -22,13 +31,13 @@ import Data.Time
 import qualified Data.ByteString as BS
 import Blaze.ByteString.Builder (toByteString)
 
-import           Data.Vault.Lazy (Key)
-import qualified Data.Vault.Lazy as V
 import Network.Wai.Trans
 import Network.HTTP.Types
 import Web.Cookie
+import Control.Monad.Trans
 
-import Debug.Trace
+import GHC.Generics
+import Data.Typeable
 
 
 data SessionConfig m k v = SessionConfig
@@ -42,24 +51,21 @@ data SessionConfig m k v = SessionConfig
   , newVal    :: k -> v -> m (Maybe v)    -- ^ method to getting another value -
                                           --   this could ping a nonce cache in @m@
                                           --   for instance.
-  , vaultVar  :: Key k                    -- ^ The vault 'Data.Vault.Lazy.Key' used
-                                          --   to store the /session/ key
-                                          --   when 'newVal' is successful.
   }
 
 
-sessionMiddleware :: Monad m => SessionConfig m k v -> MiddlewareT m
+sessionMiddleware :: Monad m => SessionConfig m k v
+                             -> ApplicationT (SessionT k m)
+                             -> ApplicationT m
 sessionMiddleware cfg app req respond = do
   case parseSessionCookies cfg (requestHeaders req) of
-    Nothing        -> app req respond
+    Nothing        -> hoistApplicationT (`runSessionT` Nothing) lift app req respond
     Just (key,val) -> do
       mVal <- newVal cfg key val
       case mVal of
-        Nothing    -> app req respond
-        Just val'  ->
-          let f    = mapResponseHeaders (++ renderSessionCookies cfg key val')
-              req' = req {vault = V.insert (vaultVar cfg) key (vault req)}
-          in app req' (respond . f)
+        Nothing    -> hoistApplicationT (`runSessionT` Nothing) lift app req respond
+        Just val'  -> let f = mapResponseHeaders (++ renderSessionCookies cfg key val')
+                      in  hoistApplicationT (`runSessionT` Just key) lift app req (respond . f)
 
 
 parseSessionCookies :: SessionConfig m k v -> RequestHeaders -> Maybe (k, v)
@@ -83,3 +89,28 @@ renderSessionCookies cfg key val = repeat "Set-Cookie" `zip` cookies
             }
       ]
 
+
+-- | May or may not have a current session
+newtype SessionT k m a = SessionT
+  { runSessionT :: Maybe k -> m a
+  } deriving (Functor, Generic, Typeable)
+
+instance Applicative m => Applicative (SessionT k m) where
+  pure = SessionT . const . pure
+  (SessionT f) <*> (SessionT x) =
+    SessionT $ \s -> f s <*> x s
+
+instance Monad m => Monad (SessionT k m) where
+  return = pure
+  (SessionT x) >>= f = SessionT $ \s ->
+    x s >>= (flip runSessionT s . f)
+
+instance MonadTrans (SessionT k) where
+  lift = SessionT . const
+
+
+class MonadSession k m | m -> k where
+  currentSession :: m (Maybe k)
+
+instance Applicative m => MonadSession k (SessionT k m) where
+  currentSession = SessionT $ \s -> pure s

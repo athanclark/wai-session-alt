@@ -20,6 +20,7 @@ Library
                       , bytestring
                       , cookie
                       , http-types
+                      , mtl
                       , time
                       , vault
                       , wai-transformers
